@@ -26,6 +26,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
 #ifndef HECTOR_POSE_ESTIMATION_STATE_H
 #define HECTOR_POSE_ESTIMATION_STATE_H
 
@@ -124,45 +130,114 @@ public:
   void setOrientation(const Quaternion& orientation);
   template <typename Derived> void setOrientation(const Eigen::MatrixBase<Derived>& orientation);
   void setRollPitch(const Quaternion& orientation);
-  void setRollPitch(ScalarType roll, ScalarType pitch);
-  void setYaw(const Quaternion& orientation);
-  void setYaw(ScalarType yaw);
-  template <typename Derived> void setRate(const Eigen::MatrixBase<Derived>& rate);
-  template <typename Derived> void setPosition(const Eigen::MatrixBase<Derived>& position);
-  template <typename Derived> void setVelocity(const Eigen::MatrixBase<Derived>& velocity);
-  template <typename Derived> void setAcceleration(const Eigen::MatrixBase<Derived>& acceleration);
 
-  void getRotationMatrix(RotationMatrix &R) const;
-  const State::RotationMatrix &R() const;
-  double getYaw() const;
-  void getEuler(double &roll, double &pitch, double &yaw) const;
-  ColumnVector3 getEuler() const;
+    void setRollPitch(ScalarType roll, ScalarType pitch);
 
-  const SubStates& getSubStates() const { return substates_; }
-  template <int SubVectorDimension, int SubCovarianceDimension> boost::shared_ptr<SubState_<SubVectorDimension,SubCovarianceDimension> > getSubState(const Model *model) const;
-  template <int SubVectorDimension, int SubCovarianceDimension> boost::shared_ptr<SubState_<SubVectorDimension,SubCovarianceDimension> > getSubState(const std::string& name) const;
-  template <int SubVectorDimension, int SubCovarianceDimension> boost::shared_ptr<SubState_<SubVectorDimension,SubCovarianceDimension> > addSubState(const std::string& name = std::string());
-  template <int SubVectorDimension, int SubCovarianceDimension> boost::shared_ptr<SubState_<SubVectorDimension,SubCovarianceDimension> > addSubState(const Model *model, const std::string& name = std::string());
+    void setYaw(const Quaternion &orientation);
 
-  const ros::Time& getTimestamp() const { return timestamp_; }
-  void setTimestamp(const ros::Time& timestamp) { timestamp_ = timestamp; }
+    void setYaw(ScalarType yaw);
 
-protected:
-  State();
-  void construct();
+    template<typename Derived>
+    void setRate(const Eigen::MatrixBase <Derived> &rate);
 
-  OrientationType orientationPart();
-  RateType ratePart();
-  PositionType positionPart();
-  VelocityType velocityPart();
-  AccelerationType accelerationPart();
+    template<typename Derived>
+    void setPosition(const Eigen::MatrixBase <Derived> &position);
 
-  void orientationSet();
-  void rollpitchSet();
-  void yawSet();
-  void rateSet();
-  void positionSet();
-  void velocitySet();
+    template<typename Derived>
+    void setVelocity(const Eigen::MatrixBase <Derived> &velocity);
+
+    template<typename Derived>
+    void setAcceleration(const Eigen::MatrixBase <Derived> &acceleration);
+
+    void getRotationMatrix(RotationMatrix &R) const;
+
+    const State::RotationMatrix &R() const;
+
+    double getYaw() const;
+
+    void getEuler(double &roll, double &pitch, double &yaw) const;
+
+    ColumnVector3 getEuler() const;
+
+    const SubStates &getSubStates() const { return substates_; }
+
+    template<int SubVectorDimension, int SubCovarianceDimension>
+    boost::shared_ptr <SubState_<SubVectorDimension, SubCovarianceDimension>>
+    getSubState(const Model *model) const;
+
+    template<int SubVectorDimension, int SubCovarianceDimension>
+    boost::shared_ptr <SubState_<SubVectorDimension, SubCovarianceDimension>>
+    getSubState(const std::string &name) const;
+
+    template<int SubVectorDimension, int SubCovarianceDimension>
+    boost::shared_ptr <SubState_<SubVectorDimension, SubCovarianceDimension>>
+    addSubState(const std::string &name = std::string());
+
+    template<int SubVectorDimension, int SubCovarianceDimension>
+    boost::shared_ptr <SubState_<SubVectorDimension, SubCovarianceDimension>>
+    addSubState(const Model *model, const std::string &name = std::string());
+
+    // This is added to convert to tensors.
+    static std::vector<double> columnVectorToVector(const State::Vector &vec) {
+      std::vector<double> v(static_cast<unsigned long>(vec.size()));
+      Eigen::Map < Eigen::Matrix < double, -1, 1, 0, 20,
+        1 >> (v.data(), vec.rows(), vec.cols()) = vec;
+      return v;
+    }
+
+    static std::vector <std::vector<double>>
+    systemMatrixToVector(const State::SystemMatrix &matrix) {
+      // Returns column wise.
+      auto sz = matrix.size();
+      auto col_length = matrix.rows();
+      std::vector<double> v(static_cast<unsigned long>(matrix.size()));
+      Eigen::Map < Eigen::Matrix < double, -1, -1, 0, 20,
+        20 >> (v.data(), matrix.rows(), matrix.cols()) = matrix;
+      std::vector <std::vector<double>> container;
+      std::vector<double> tmp;
+      for (int i = 0; i < v.size(); i++) {
+        if (i % col_length == 0 && i > 0) {
+          container.push_back(tmp);
+          tmp.clear();
+        }
+        // fill a std vector
+        tmp.push_back(v[i]);
+        // push back in a container vector
+      }
+      container.push_back(tmp);
+      return container;
+    }
+
+    const ros::Time &getTimestamp() const { return timestamp_; }
+
+    void setTimestamp(const ros::Time &timestamp) { timestamp_ = timestamp; }
+
+  protected:
+    State();
+
+    void construct();
+
+    OrientationType orientationPart();
+
+    RateType ratePart();
+
+    PositionType positionPart();
+
+    VelocityType velocityPart();
+
+    AccelerationType accelerationPart();
+
+    void orientationSet();
+
+    void rollpitchSet();
+
+    void yawSet();
+
+    void rateSet();
+
+    void positionSet();
+
+    void velocitySet();
   void accelerationSet();
 
 protected:
