@@ -16,16 +16,19 @@ if(NOT EIGEN3_FOUND)
   find_package(Eigen REQUIRED)
   set(EIGEN3_FOUND ${EIGEN_FOUND})
   set(EIGEN3_INCLUDE_DIR ${EIGEN_INCLUDE_DIRS})
-  # set(EIGEN3_LIBRARIES ${EIGEN_LIBRARIES})
-  # Possibly map additional variables to the EIGEN3_ prefix.
-endif()
+endif ()
 
 # Find hector_timing and use it, if available
 find_package(hector_timing QUIET)
-if(hector_timing_FOUND)
+if (hector_timing_FOUND)
   list(APPEND catkin_INCLUDE_DIRS ${hector_timing_INCLUDE_DIRS})
   list(APPEND catkin_LIBRARIES ${hector_timing_LIBRARIES})
-endif()
+endif ()
+
+#set(torch_DIR /home/r/pytorch/build_libtorch/build)
+#set(CMAKE_PREFIX_PATH /home/r/pytorch/build_libtorch/build)
+set(CMAKE_PREFIX_PATH /home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/libtorch)
+find_package(Torch REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -104,7 +107,8 @@ add_library(hector_pose_estimation
   src/state.cpp
 
   src/filter.cpp
-  src/filter/ekf.cpp
+        src/filter/ekf.cpp
+        src/filter/ekhi.cpp
 
   src/system.cpp
   src/system/generic_quaternion_system_model.cpp
@@ -129,7 +133,8 @@ add_library(hector_pose_estimation
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(hector_pose_estimation
-  ${catkin_LIBRARIES}
+        ${catkin_LIBRARIES}
+        torch
 )
 
 #############
