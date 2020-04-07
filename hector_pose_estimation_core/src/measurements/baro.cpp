@@ -26,6 +26,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
 #include <hector_pose_estimation/measurements/baro.h>
 #include <hector_pose_estimation/filter/set_filter.h>
 
@@ -33,47 +39,66 @@
 
 namespace hector_pose_estimation {
 
-template class Measurement_<BaroModel>;
+  template
+  class Measurement_<BaroModel>;
 
-BaroModel::BaroModel()
-{
-  stddev_ = 1.0;
-  qnh_ = 1013.25;
-  parameters().add("qnh", qnh_);
-}
-
-BaroModel::~BaroModel() {}
-
-void BaroModel::getExpectedValue(MeasurementVector& y_pred, const State& state)
-{
-  y_pred(0) = qnh_ * pow(1.0 - (0.0065 * (state.getPosition().z() + getElevation())) / 288.15, 5.255);
-}
-
-void BaroModel::getStateJacobian(MeasurementMatrix& C, const State& state, bool)
-{
-  if (state.position()) {
-    state.position()->cols(C)(0,Z) = qnh_ * 5.255 * pow(1.0 - (0.0065 * (state.getPosition().z() + getElevation())) / 288.15, 4.255) * (-0.0065 / 288.15);
+  BaroModel::BaroModel() {
+    stddev_ = 1.0;
+    qnh_ = 1013.25;
+    parameters().add("qnh", qnh_);
   }
-}
 
-double BaroModel::getAltitude(const BaroUpdate& update)
-{
-  return 288.15 / 0.0065 * (1.0 - pow(update.getVector()(0) / qnh_, 1.0/5.255));
-}
+  BaroModel::~BaroModel() {}
 
-BaroUpdate::BaroUpdate() : qnh_(0) {}
-BaroUpdate::BaroUpdate(double pressure) : qnh_(0) { *this = pressure; }
-BaroUpdate::BaroUpdate(double pressure, double qnh) : qnh_(qnh) { *this = pressure; }
+  void BaroModel::getExpectedValue(MeasurementVector &y_pred, const State &state) {
+    y_pred(0) =
+      qnh_ * pow(1.0 - (0.0065 * (state.getPosition().z() + getElevation())) / 288.15, 5.255);
+  }
 
-Baro::Baro(const std::string &name)
-  : Measurement_<BaroModel>(name)
-  , HeightBaroCommon(this)
-{
-  parameters().add("auto_elevation", auto_elevation_);
-}
+  void BaroModel::getStateJacobian(MeasurementMatrix &C, const State &state, bool) {
+    if (state.position()) {
+      state.position()->cols(C)(0, Z) = qnh_ * 5.255 * pow(
+        1.0 - (0.0065 * (state.getPosition().z() + getElevation())) / 288.15, 4.255) *
+                                        (-0.0065 / 288.15);
+    }
+  }
 
-void Baro::onReset()
-{
+/**
+ * This method converts the raw values to an xyz orientation vector.
+ * @param y_in
+ * @param y_out
+ * @param state
+ */
+  void BaroModel::getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
+                                    const
+                                    State &state) {
+    // y should be [orientation (euler), rate, position, velocity, acceleration] in groups of x,y,z
+    // so index 8 should be position z.
+    y_out[8] = getAlt(y_in) - getElevation();
+    ROS_WARN_STREAM("Baro y_out = [" << y_out << "]");
+  }
+
+  double BaroModel::getAlt(const MeasurementVector &y_pred) {
+//  ROS_WARN_STREAM("Altitude:  " << 288.15 / 0.0065 * (1.0 - pow(y_pred / qnh_, 1.0/5.255)));
+    return 288.15 / 0.0065 * (1.0 - pow(y_pred(0) / qnh_, 1.0 / 5.255));
+  }
+
+  double BaroModel::getAltitude(const BaroUpdate &update) {
+    return 288.15 / 0.0065 * (1.0 - pow(update.getVector()(0) / qnh_, 1.0 / 5.255));
+  }
+
+  BaroUpdate::BaroUpdate() : qnh_(0) {}
+
+  BaroUpdate::BaroUpdate(double pressure) : qnh_(0) { *this = pressure; }
+
+  BaroUpdate::BaroUpdate(double pressure, double qnh) : qnh_(qnh) { *this = pressure; }
+
+  Baro::Baro(const std::string &name)
+    : Measurement_<BaroModel>(name), HeightBaroCommon(this) {
+    parameters().add("auto_elevation", auto_elevation_);
+  }
+
+  void Baro::onReset() {
   HeightBaroCommon::onReset();
 }
 

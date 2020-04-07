@@ -26,37 +26,53 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
+
 #ifndef HECTOR_POSE_ESTIMATION_BARO_H
 #define HECTOR_POSE_ESTIMATION_BARO_H
 
 #include <hector_pose_estimation/measurement.h>
 #include <hector_pose_estimation/measurements/height.h>
 
+#include <torch/script.h>
+
 #ifdef USE_HECTOR_UAV_MSGS
-  #include <hector_uav_msgs/Altimeter.h>
+#include <hector_uav_msgs/Altimeter.h>
 #endif
 
 namespace hector_pose_estimation {
 
-class BaroUpdate;
+  class BaroUpdate;
 
-class BaroModel : public HeightModel
-{
-public:
-  BaroModel();
-  virtual ~BaroModel();
+  class BaroModel : public HeightModel {
+  public:
+    BaroModel();
 
-  virtual void getExpectedValue(MeasurementVector& y_pred, const State& state);
-  virtual void getStateJacobian(MeasurementMatrix& C, const State& state, bool init);
+    virtual ~BaroModel();
 
-  void setQnh(double qnh) { qnh_ = qnh; }
-  double getQnh() const { return qnh_; }
+    virtual void getExpectedValue(MeasurementVector &y_pred, const State &state);
 
-  double getAltitude(const BaroUpdate& update);
+    virtual void getStateJacobian(MeasurementMatrix &C, const State &state, bool init);
 
-protected:
-  double qnh_;
-};
+    virtual void getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
+                                   const State &state);
+
+    void setQnh(double qnh) { qnh_ = qnh; }
+
+    double getQnh() const { return qnh_; }
+
+    double getAltitude(const BaroUpdate &update);
+
+    double getAlt(const MeasurementVector &y_pred);
+
+  protected:
+    double qnh_;
+  };
 
 class BaroUpdate : public Update_<BaroModel> {
 public:

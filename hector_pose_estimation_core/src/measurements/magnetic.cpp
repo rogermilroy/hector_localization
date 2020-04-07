@@ -26,6 +26,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
 #include <hector_pose_estimation/measurements/magnetic.h>
 #include <hector_pose_estimation/filter/set_filter.h>
 
@@ -33,16 +39,16 @@
 
 namespace hector_pose_estimation {
 
-template class Measurement_<MagneticModel>;
+  template
+  class Measurement_<MagneticModel>;
 
-MagneticModel::MagneticModel()
-  : declination_(0.0), inclination_(60.0 * M_PI/180.0), magnitude_(0.0)
-{
-  parameters().add("stddev", stddev_, 1.0);
-  parameters().add("declination", declination_);
-  parameters().add("inclination", inclination_);
-  parameters().add("magnitude", magnitude_);
-}
+  MagneticModel::MagneticModel()
+    : declination_(0.0), inclination_(60.0 * M_PI / 180.0), magnitude_(0.0) {
+    parameters().add("stddev", stddev_, 1.0);
+    parameters().add("declination", declination_);
+    parameters().add("inclination", inclination_);
+    parameters().add("magnitude", magnitude_);
+  }
 
 MagneticModel::~MagneticModel() {}
 
@@ -58,36 +64,48 @@ void MagneticModel::setReference(const GlobalReference::Heading &reference_headi
   magnetic_field_reference_.z() = magnetic_field_north_.z();
 }
 
-void MagneticModel::getMeasurementNoise(NoiseVariance& R, const State&, bool init)
-{
-  if (init) {
-    R(0,0) = R(1,1) = R(2,2) = pow(stddev_, 2);
+  void MagneticModel::getMeasurementNoise(NoiseVariance &R, const State &, bool init) {
+    if (init) {
+      R(0, 0) = R(1, 1) = R(2, 2) = pow(stddev_, 2);
+    }
   }
-}
 
-void MagneticModel::getExpectedValue(MeasurementVector& y_pred, const State& state)
-{
-  const State::RotationMatrix &R = state.R();
-  y_pred = R.transpose() * magnetic_field_reference_;
-}
-
-void MagneticModel::getStateJacobian(MeasurementMatrix& C, const State& state, bool)
-{
-  if (state.orientation()) {
+  void MagneticModel::getExpectedValue(MeasurementVector &y_pred, const State &state) {
     const State::RotationMatrix &R = state.R();
-    state.orientation()->cols(C)(X,Z) = R(0,0) * magnetic_field_reference_.y() - R(1,0) * magnetic_field_reference_.x();
-    state.orientation()->cols(C)(Y,Z) = R(0,1) * magnetic_field_reference_.y() - R(1,1) * magnetic_field_reference_.x();
-    state.orientation()->cols(C)(Z,Z) = R(0,2) * magnetic_field_reference_.y() - R(1,2) * magnetic_field_reference_.x();
+    y_pred = R.transpose() * magnetic_field_reference_;
   }
-}
 
-double MagneticModel::getMagneticHeading(const State& state, const MeasurementVector &y) const {
-  MeasurementVector y_nav;
-  y_nav = state.R() * y;
-  return atan2(y_nav.y(), y_nav.x()) - state.getYaw();
-}
+  void MagneticModel::getCorrectedValue(const MeasurementVector &y_in, at::Tensor &
+  y_out, const State &state) {
+    MeasurementVector y_nav;
+    y_nav = state.R() * y_in;
+    // y should be [orientation (euler), rate, position, velocity, acceleration] in groups of x,y,z
+    // so index 2 should be orientation z.
+    y_out[2] = atan2(y_nav.y(), y_nav.x()) + declination_;
+    ROS_WARN_STREAM("Magnetic y out = [" << y_out << "]");
+  }
 
-double MagneticModel::getTrueHeading(const State& state, const MeasurementVector &y) const {
+  void MagneticModel::getStateJacobian(MeasurementMatrix &C, const State &state, bool) {
+    if (state.orientation()) {
+      const State::RotationMatrix &R = state.R();
+      state.orientation()->cols(C)(X, Z) =
+        R(0, 0) * magnetic_field_reference_.y() - R(1, 0) * magnetic_field_reference_.x();
+      state.orientation()->cols(C)(Y, Z) =
+        R(0, 1) * magnetic_field_reference_.y() - R(1, 1) * magnetic_field_reference_.x();
+      state.orientation()->cols(C)(Z, Z) =
+        R(0, 2) * magnetic_field_reference_.y() - R(1, 2) * magnetic_field_reference_.x();
+    }
+  }
+
+  double MagneticModel::getMagneticHeading(const State &state, const MeasurementVector &y) const {
+    MeasurementVector y_nav;
+    y_nav = state.R() * y;
+//  ROS_WARN_STREAM("Magnetic Heading = [ " << atan2(y_nav.y(), y_nav.x()) - state.getYaw() << " ]");
+    return atan2(y_nav.y(), y_nav.x()) - state.getYaw();
+  }
+
+  double MagneticModel::getTrueHeading(const State &state, const MeasurementVector &y) const {
+//  ROS_WARN_STREAM("True Heading = [ " << getMagneticHeading(state, y) + declination_ << " ]");
   return getMagneticHeading(state, y) + declination_;
 }
 

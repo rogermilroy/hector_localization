@@ -26,6 +26,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
 #ifndef HECTOR_POSE_ESTIMATION_MEASUREMENT_MODEL_H
 #define HECTOR_POSE_ESTIMATION_MEASUREMENT_MODEL_H
 
@@ -33,21 +39,29 @@
 #include <hector_pose_estimation/substate.h>
 #include <hector_pose_estimation/input.h>
 
+#include <torch/script.h>
+
 namespace hector_pose_estimation {
 
-class MeasurementModel : public Model {
-public:
-  virtual ~MeasurementModel() {}
+  class MeasurementModel : public Model {
+  public:
+    virtual ~MeasurementModel() {}
 
-  virtual bool init(PoseEstimation& estimator, Measurement &measurement, State& state) { return true; }
-  virtual int getDimension() const = 0;
+    virtual bool
+    init(PoseEstimation &estimator, Measurement &measurement, State &state) { return true; }
 
-  virtual SystemStatus getStatusFlags() { return SystemStatus(0); }
-  virtual bool active(const State& state) { return !(state.getSystemStatus() & STATUS_ALIGNMENT); }
+    virtual int getDimension() const = 0;
 
-  virtual bool prepareUpdate(State& state, const MeasurementUpdate& update) { return true; }
-  virtual void afterUpdate(State& state) {}
-};
+    virtual SystemStatus getStatusFlags() { return SystemStatus(0); }
+
+    virtual bool active(const State &state) {
+      return !(state.getSystemStatus() & STATUS_ALIGNMENT);
+    }
+
+    virtual bool prepareUpdate(State &state, const MeasurementUpdate &update) { return true; }
+
+    virtual void afterUpdate(State &state) {}
+  };
 
 template <class Derived, int _Dimension> class MeasurementModel_;
 
@@ -89,21 +103,29 @@ template <class Derived, int _Dimension>
 class MeasurementModel_ : public MeasurementModel {
 public:
   MEASUREMENT_MODEL_TRAIT(Derived, _Dimension)
+
   virtual ~MeasurementModel_() {}
 
   virtual int getDimension() const { return trait::MeasurementDimension; }
 
   Derived *derived() { return static_cast<Derived *>(this); }
+
   const Derived *derived() const { return static_cast<const Derived *>(this); }
 
-  virtual void getExpectedValue(MeasurementVector& y_pred, const State& state);
-  virtual void getStateJacobian(MeasurementMatrix& C, const State& state, bool init = true);
-  virtual void getInputJacobian(InputMatrix& D, const State& state, bool init = true);
-  virtual void getMeasurementNoise(NoiseVariance& R, const State& state, bool init = true);
+  virtual void getExpectedValue(MeasurementVector &y_pred, const State &state);
 
-  virtual void limitError(MeasurementVector& error) {}
+  virtual void getStateJacobian(MeasurementMatrix &C, const State &state, bool init = true);
 
-  virtual const MeasurementVector* getFixedMeasurementVector() const { return 0; }
+  virtual void getInputJacobian(InputMatrix &D, const State &state, bool init = true);
+
+  virtual void getMeasurementNoise(NoiseVariance &R, const State &state, bool init = true);
+
+  virtual void
+  getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out, const State &state);
+
+  virtual void limitError(MeasurementVector &error) {}
+
+  virtual const MeasurementVector *getFixedMeasurementVector() const { return 0; }
 };
 
 template <class Derived, int _Dimension>
@@ -113,22 +135,31 @@ void MeasurementModel_<Derived, _Dimension>::getExpectedValue(MeasurementVector&
 }
 
 template <class Derived, int _Dimension>
-void MeasurementModel_<Derived, _Dimension>::getStateJacobian(MeasurementMatrix& C, const State& state, bool init)
-{
+void
+MeasurementModel_<Derived, _Dimension>::getStateJacobian(MeasurementMatrix &C, const State &state,
+                                                         bool init) {
   if (init) C.setZero();
 }
 
-template <class Derived, int _Dimension>
-void MeasurementModel_<Derived, _Dimension>::getInputJacobian(InputMatrix& D, const State& state, bool init)
-{
-  if (init) D.setZero();
-}
+  template<class Derived, int _Dimension>
+  void MeasurementModel_<Derived, _Dimension>::getInputJacobian(InputMatrix &D, const State &state,
+                                                                bool init) {
+    if (init) D.setZero();
+  }
 
-template <class Derived, int _Dimension>
-void MeasurementModel_<Derived, _Dimension>::getMeasurementNoise(NoiseVariance& R, const State& state, bool init)
-{
-  if (init) R.setZero();
-}
+  template<class Derived, int _Dimension>
+  void
+  MeasurementModel_<Derived, _Dimension>::getMeasurementNoise(NoiseVariance &R, const State &state,
+                                                              bool init) {
+    if (init) R.setZero();
+  }
+
+  template<class Derived, int _Dimension>
+  void MeasurementModel_<Derived, _Dimension>::getCorrectedValue(const MeasurementVector &y_in,
+                                                                 at::Tensor &y_out,
+                                                                 const State &state) {
+    y_out = torch::zeros_like(y_out);
+  }
 
 } // namespace hector_pose_estimation
 

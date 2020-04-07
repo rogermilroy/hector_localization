@@ -26,60 +26,76 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
 #include <hector_pose_estimation/measurements/gps.h>
 #include <hector_pose_estimation/global_reference.h>
 #include <hector_pose_estimation/filter/set_filter.h>
 
 namespace hector_pose_estimation {
 
-template class Measurement_<GPSModel>;
+  template
+  class Measurement_<GPSModel>;
 
-GPSModel::GPSModel()
-{
-  position_stddev_ = 10.0;
-  velocity_stddev_ = 1.0;
-  parameters().add("position_stddev", position_stddev_);
-  parameters().add("velocity_stddev", velocity_stddev_);
-}
+  GPSModel::GPSModel() {
+    position_stddev_ = 10.0;
+    velocity_stddev_ = 1.0;
+    parameters().add("position_stddev", position_stddev_);
+    parameters().add("velocity_stddev", velocity_stddev_);
+  }
 
-GPSModel::~GPSModel() {}
+  GPSModel::~GPSModel() {}
 
 void GPSModel::getMeasurementNoise(NoiseVariance& R, const State&, bool init)
 {
   if (init) {
     R(0,0) = R(1,1) = pow(position_stddev_, 2);
-    R(2,2) = R(3,3) = pow(velocity_stddev_, 2);
+    R(2, 2) = R(3, 3) = pow(velocity_stddev_, 2);
   }
 }
 
-bool GPSModel::prepareUpdate(State &state, const MeasurementUpdate &update)
-{
-  state.getRotationMatrix(R);
-  return true;
-}
-
-void GPSModel::getExpectedValue(MeasurementVector& y_pred, const State& state)
-{
-  y_pred(0) = state.getPosition().x();
-  y_pred(1) = state.getPosition().y();
-  y_pred(2) = state.getVelocity().x();
-  y_pred(3) = state.getVelocity().y();
-}
-
-void GPSModel::getStateJacobian(MeasurementMatrix& C, const State& state, bool init)
-{
-  if (!init) return; // C is time-constant
-
-  if (state.position()) {
-    state.position()->cols(C)(0,X) = 1.0;
-    state.position()->cols(C)(1,Y) = 1.0;
+  bool GPSModel::prepareUpdate(State &state, const MeasurementUpdate &update) {
+    state.getRotationMatrix(R);
+    return true;
   }
 
-  if (state.velocity()) {
-    state.velocity()->cols(C)(2,X) = 1.0;
-    state.velocity()->cols(C)(3,Y) = 1.0;
+  void GPSModel::getExpectedValue(MeasurementVector &y_pred, const State &state) {
+    y_pred(0) = state.getPosition().x();
+    y_pred(1) = state.getPosition().y();
+    y_pred(2) = state.getVelocity().x();
+    y_pred(3) = state.getVelocity().y();
   }
-}
+
+  void GPSModel::getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
+                                   const
+                                   State &state) {
+    // yin is fine as it is.
+    // y should be [orientation (euler), rate, position, velocity, acceleration] in groups of x,y,z
+    // so index 8 should be position z.
+    y_out[6] = y_in(0);
+    y_out[7] = y_in(1);
+    y_out[9] = y_in(2);
+    y_out[10] = y_in(3);
+    ROS_WARN_STREAM("GPS y out = [" << y_out << "]");
+  }
+
+  void GPSModel::getStateJacobian(MeasurementMatrix &C, const State &state, bool init) {
+    if (!init) return; // C is time-constant
+
+    if (state.position()) {
+      state.position()->cols(C)(0, X) = 1.0;
+      state.position()->cols(C)(1, Y) = 1.0;
+    }
+
+    if (state.velocity()) {
+      state.velocity()->cols(C)(2, X) = 1.0;
+      state.velocity()->cols(C)(3, Y) = 1.0;
+    }
+  }
 
 GPS::GPS(const std::string &name)
   : Measurement_<GPSModel>(name)

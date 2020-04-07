@@ -26,32 +26,46 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
 #ifndef HECTOR_POSE_ESTIMATION_GPS_H
 #define HECTOR_POSE_ESTIMATION_GPS_H
 
 #include <hector_pose_estimation/measurement.h>
 #include <hector_pose_estimation/global_reference.h>
 
+//#include <torch/script.h>
+
 namespace hector_pose_estimation {
 
-class GPSModel : public MeasurementModel_<GPSModel,4> {
-public:
-  GPSModel();
-  virtual ~GPSModel();
+  class GPSModel : public MeasurementModel_<GPSModel, 4> {
+  public:
+    GPSModel();
 
-  virtual SystemStatus getStatusFlags() { return STATE_POSITION_XY | STATE_VELOCITY_XY; }
+    virtual ~GPSModel();
 
-  virtual bool prepareUpdate(State &state, const MeasurementUpdate &update);
+    virtual SystemStatus getStatusFlags() { return STATE_POSITION_XY | STATE_VELOCITY_XY; }
 
-  virtual void getMeasurementNoise(NoiseVariance& R, const State&, bool init);
-  virtual void getExpectedValue(MeasurementVector& y_pred, const State& state);
-  virtual void getStateJacobian(MeasurementMatrix& C, const State& state, bool init);
+    virtual bool prepareUpdate(State &state, const MeasurementUpdate &update);
 
-protected:
-  double position_stddev_;
-  double velocity_stddev_;
-  State::RotationMatrix R;
-};
+    virtual void getMeasurementNoise(NoiseVariance &R, const State &, bool init);
+
+    virtual void getExpectedValue(MeasurementVector &y_pred, const State &state);
+
+    virtual void getStateJacobian(MeasurementMatrix &C, const State &state, bool init);
+
+    virtual void getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
+                                   const State &state);
+
+  protected:
+    double position_stddev_;
+    double velocity_stddev_;
+    State::RotationMatrix R;
+  };
 
 struct GPSUpdate : public MeasurementUpdate {
   double latitude;

@@ -26,43 +26,60 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
+//=================================================================================================
+// The below work has been modified from code written by Johannes Meyer, TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
+
 #ifndef HECTOR_POSE_ESTIMATION_MAGNETIC_H
 #define HECTOR_POSE_ESTIMATION_MAGNETIC_H
 
 #include <hector_pose_estimation/measurement.h>
 #include <hector_pose_estimation/global_reference.h>
 
+#include <torch/script.h>
+
 namespace hector_pose_estimation {
 
-class MagneticModel : public MeasurementModel_<MagneticModel,3> {
-public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  class MagneticModel : public MeasurementModel_<MagneticModel, 3> {
+  public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  MagneticModel();
-  virtual ~MagneticModel();
+    MagneticModel();
 
-  virtual bool init(PoseEstimation &estimator, Measurement &measurement, State &state);
+    virtual ~MagneticModel();
 
-  virtual SystemStatus getStatusFlags() { return STATE_YAW; }
+    virtual bool init(PoseEstimation &estimator, Measurement &measurement, State &state);
 
-  virtual void getMeasurementNoise(NoiseVariance& R, const State&, bool init);
-  virtual void getExpectedValue(MeasurementVector& y_pred, const State& state);
-  virtual void getStateJacobian(MeasurementMatrix& C, const State& state, bool init);
+    virtual SystemStatus getStatusFlags() { return STATE_YAW; }
 
-  double getMagneticHeading(const State& state, const MeasurementVector& y) const;
-  double getTrueHeading(const State& state, const MeasurementVector& y) const;
+    virtual void getMeasurementNoise(NoiseVariance &R, const State &, bool init);
 
-  void setReference(const GlobalReference::Heading &reference_heading);
-  bool hasMagnitude() const { return magnitude_ != 0.0; }
+    virtual void getExpectedValue(MeasurementVector &y_pred, const State &state);
 
-protected:
-  double stddev_;
-  double declination_, inclination_, magnitude_;
-  void updateMagneticField();
+    virtual void getStateJacobian(MeasurementMatrix &C, const State &state, bool init);
 
-  MeasurementVector magnetic_field_north_;
-  MeasurementVector magnetic_field_reference_;
-};
+    virtual void getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
+                                   const State &state);
+
+    double getMagneticHeading(const State &state, const MeasurementVector &y) const;
+
+    double getTrueHeading(const State &state, const MeasurementVector &y) const;
+
+    void setReference(const GlobalReference::Heading &reference_heading);
+
+    bool hasMagnitude() const { return magnitude_ != 0.0; }
+
+  protected:
+    double stddev_;
+    double declination_, inclination_, magnitude_;
+
+    void updateMagneticField();
+
+    MeasurementVector magnetic_field_north_;
+    MeasurementVector magnetic_field_reference_;
+  };
 
 extern template class Measurement_<MagneticModel>;
 
