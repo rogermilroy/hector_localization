@@ -1,6 +1,4 @@
 //=================================================================================================
-// Copyright (c) 2013, Johannes Meyer, TU Darmstadt
-// All rights reserved.
 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -26,45 +24,49 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef HECTOR_POSE_ESTIMATION_FILTER_SET_FILTER_H
-#define HECTOR_POSE_ESTIMATION_FILTER_SET_FILTER_H
+//=================================================================================================
+// The below work is derived from the EKF class written by Johannes Meyer TU Darmstadt.
+//
+// Modifications carried out by Roger Milroy.
+//=================================================================================================
 
-#include <hector_pose_estimation/system.h>
-#include <hector_pose_estimation/measurement.h>
 
-#include <hector_pose_estimation/filter/ekf.h>
+#ifndef HECTOR_POSE_ESTIMATION_FILTER_EKHI_INL
+#define HECTOR_POSE_ESTIMATION_FILTER_EKHI_INL
+
 #include <hector_pose_estimation/filter/ekhi.h>
-
-#include <ros/console.h>
+#include <boost/utility/enable_if.hpp>
 
 namespace hector_pose_estimation {
+  namespace filter {
 
-template <class ConcreteModel>
-void System_<ConcreteModel>::setFilter(Filter *filter) {
-  if (filter->derived<filter::EKF>()) {
-    predictor_ = Filter::factory(filter->derived<filter::EKF>()).addPredictor<ConcreteModel>(
-      this->getModel());
-  } else if (filter->derived<filter::EKHI>()) {
-    predictor_ = Filter::factory(filter->derived<filter::EKHI>()).addPredictor<ConcreteModel>
-      (this->getModel());
-  } else {
-    ROS_ERROR_NAMED(getName(), "Unknown filter type: %s", filter->getType().c_str());
-  }
-}
+    template<class ConcreteModel, typename Enabled>
+    bool EKHI::Predictor_<ConcreteModel, Enabled>::predict(double dt) {
 
-template <class ConcreteModel>
-void Measurement_<ConcreteModel>::setFilter(Filter *filter) {
-  if (filter->derived<filter::EKF>()) {
-    corrector_ = Filter::factory(filter->derived<filter::EKF>()).addCorrector<ConcreteModel>(
-      this->getModel());
-  } else if (filter->derived<filter::EKHI>()) {
-    corrector_ = Filter::factory(filter->derived<filter::EKHI>()).addCorrector<ConcreteModel>
-      (this->getModel());
-  } else {
-    ROS_ERROR_NAMED(getName(), "Unknown filter type: %s", filter->getType().c_str());
-  }
-}
+      // This should just update F
+      this->model_->getStateJacobian(F, state(), dt, this->init_);
 
-}
+      // Prediction should happen only in main EKHi
+      this->init_ = false;  // TODO what is this about?
+      return true;
+    }
 
-#endif // HECTOR_POSE_ESTIMATION_FILTER_SET_FILTER_H
+    template<class ConcreteModel, typename Enabled>
+    bool EKHI::Corrector_<ConcreteModel, Enabled>::correct(const typename
+                                                           ConcreteModel::MeasurementVector &y,
+                                                           const typename ConcreteModel::NoiseVariance &R) {
+
+      // this directly updates the base filters y
+      // TODO this acts weirdly with resetting the base y ... WHY??
+      this->model_->getCorrectedValue(y, filter_->yt, state());
+
+      ROS_WARN_STREAM("base filter yt = [" << filter_->yt << "]");
+
+      this->init_ = false; // TODO what is this for???
+      return true;
+    }
+
+  } // namespace filter
+} // namespace hector_pose_estimation
+
+#endif // HECTOR_POSE_ESTIMATION_FILTER_EKF_INL
