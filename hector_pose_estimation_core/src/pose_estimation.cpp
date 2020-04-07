@@ -28,6 +28,7 @@
 
 #include <hector_pose_estimation/pose_estimation.h>
 #include <hector_pose_estimation/filter/ekf.h>
+#include <hector_pose_estimation/filter/ekhi.h>
 #include <hector_pose_estimation/global_reference.h>
 
 #include <hector_pose_estimation/system/imu_input.h>
@@ -98,7 +99,7 @@ bool PoseEstimation::init()
   if (systems_.empty()) return false;
 
   // create new filter
-  filter_.reset(new filter::EKF(*state_));
+  filter_.reset(new filter::EKHI(*state_));
 
   // initialize systems (new systems could be added during initialization!)
   for(Systems::iterator it = systems_.begin(); it != systems_.end(); ++it)
@@ -285,6 +286,7 @@ const SystemPtr& PoseEstimation::addSystem(const SystemPtr& system, const std::s
 InputPtr PoseEstimation::addInput(const InputPtr& input, const std::string& name)
 {
   if (!name.empty()) input->setName(name);
+  ROS_WARN_STREAM("Add Input: " << name << std::endl);
   return inputs_.add(input, input->getName());
 }
 
