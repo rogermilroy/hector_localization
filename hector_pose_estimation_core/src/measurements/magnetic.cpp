@@ -77,8 +77,10 @@ void MagneticModel::setReference(const GlobalReference::Heading &reference_headi
 
   void MagneticModel::getCorrectedValue(const MeasurementVector &y_in, at::Tensor &
   y_out, const State &state) {
+    ROS_WARN_STREAM("Magnetic y in = [" << y_in.transpose() << "]");
     MeasurementVector y_nav;
-    y_nav = state.R() * y_in;
+    ROS_WARN_STREAM("Magnetic R = [" << state.R() << "]");
+    y_nav = state.R() * y_in;  // CHECK R!!!
     // y should be [orientation (euler), rate, position, velocity, acceleration] in groups of x,y,z
     // so index 2 should be orientation z.
     y_out[2] = atan2(y_nav.y(), y_nav.x()) + declination_;

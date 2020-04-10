@@ -61,8 +61,10 @@ namespace hector_pose_estimation {
       ys = torch::zeros_like(yt);
       ys = torch::unsqueeze(ys, 0); // make 2d so cat works correctly.
       // Load EKHI model here
+
       model = torch::jit::load(
-        "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/hybrid_inference/src/torchscript/ekhi_model.pt");
+        "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/hybrid_inference/src"
+        "/torchscript/ekhi_model_larger.pt");
 
       ROS_WARN(
         "+++++++++++++++++++++++++++++++++ INIT EKHI +++++++++++++++++++=======================");
@@ -104,25 +106,21 @@ namespace hector_pose_estimation {
       // CALL THE MODEL.. GET the last element (predicted state)
       std::vector <torch::jit::IValue> inputs;
       // here I replace the predict by just adding zeros to the end here instead of in predict.
-      at::Tensor ys_temp = torch::cat({ys, torch::unsqueeze(torch::zeros_like(yt), 0)});
-      // unsqueeze as ekhi is expecting batches
-      ys_temp = torch::unsqueeze(ys_temp, 0);
-      inputs.emplace_back(ys_temp);
+      inputs.emplace_back(torch::unsqueeze(torch::cat({ys, torch::unsqueeze(torch::zeros_like(yt), 0)}), 0));
       // add Ft to the end of Fs for predictions.
       inputs.emplace_back(torch::cat({Fs, torch::unsqueeze(Ft, 0)}));
+
+      torch::NoGradGuard no_grad_guard;
       xs = model.forward(inputs).toTensor();
 
       xs = torch::squeeze(xs, 0);
-//  ROS_WARN_STREAM("xs = [" << xs << "]");
 
-      // select the last element of xs
-      at::Tensor x = xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1, /*end*/ xs.size(1));
-//  ROS_WARN_STREAM("x = [" << x << "]");
+      ROS_WARN_STREAM("xs = [" << xs << "]");
 
       State::Vector curr_eul = getStateAsEuler();
 
       // convert to same format..
-      State::Vector pred_x = modelTensorToStateVector(x);
+      State::Vector pred_x = modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1, /*end*/ xs.size(1)));
 
       // calculate difference between predicted x and state
       State::Vector diff = curr_eul - pred_x;
@@ -132,7 +130,6 @@ namespace hector_pose_estimation {
 
 //  ROS_WARN_STREAM("x_pred = [" << state().getVector().transpose() << "]");
 
-//  Filter::doPredict(dt); // fairly certain this is pointless TODO test before removing properly
       return true;
     }
 
@@ -143,7 +140,7 @@ namespace hector_pose_estimation {
       // this is the most recent F.
       Fs = torch::cat({Fs, torch::unsqueeze(Ft, 0)});
       // reset Ft
-      Ft = torch::eye(Ft.size(0)); // TODO check this doesnt have weird reset issues like y did...
+      Ft = torch::eye(Ft.size(0)); // TODO check this doesn't have weird reset issues like y did...
 
       // make sure only 100 in Fs (most recent 100)
       if (Fs.size(0) > 100) {
@@ -173,26 +170,25 @@ namespace hector_pose_estimation {
         ys = torch::slice(ys, /*dim*/ 0, /*start*/ ys.size(0) - 100, /*end*/ ys.size(0));
       }
 
-//  at::print(std::cout, ys, 130);
+      at::print(std::cout, ys, 130);
+//      at::print(std::cout, Fs, 130);
 
       // CALL THE MODEL
       std::vector <torch::jit::IValue> inputs;
       inputs.emplace_back(torch::unsqueeze(ys, 0));
       inputs.emplace_back(Fs);
+
+      torch::NoGradGuard no_grad_guard;
       xs = model.forward(inputs).toTensor();
 
       xs = torch::squeeze(xs, 0);
-//  ROS_WARN_STREAM("xs = [" << xs << "]");
+      ROS_WARN_STREAM("xs = [" << xs << "]");
 
-      // extract the current state from
-      at::Tensor x = xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1, /*end*/ xs.size(1));
-
-//  ROS_WARN_STREAM("x = [" << x << "]");
-
+      // extract the current state
       State::Vector curr_eul = getStateAsEuler();
 
       // convert to same format..
-      State::Vector pred_x = modelTensorToStateVector(x);
+      State::Vector pred_x = modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1, /*end*/ xs.size(1)));
 
       // calculate difference between predicted x and state
       State::Vector diff = curr_eul - pred_x;
@@ -201,10 +197,7 @@ namespace hector_pose_estimation {
       state().update(diff);
 
 //  ROS_WARN_STREAM("diff = [" << diff.transpose() << "]");
-
-//  Filter::doCorrect(); // TODO check before replacing properly.
       return true;
     }
-
   } // namespace filter
 } // namespace hector_pose_estimation

@@ -74,6 +74,8 @@ namespace hector_pose_estimation {
                                     State &state) {
     // y should be [orientation (euler), rate, position, velocity, acceleration] in groups of x,y,z
     // so index 8 should be position z.
+    ROS_WARN_STREAM("Baro y_in = [" << y_in.transpose() << "]");
+    ROS_WARN_STREAM("Baro calculated y_out = [" << getAlt(y_in) - getElevation() << "]");
     y_out[8] = getAlt(y_in) - getElevation();
     ROS_WARN_STREAM("Baro y_out = [" << y_out << "]");
   }

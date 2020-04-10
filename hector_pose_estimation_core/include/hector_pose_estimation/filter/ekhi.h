@@ -91,11 +91,15 @@ namespace hector_pose_estimation {
       }
 
       State::Vector modelTensorToStateVector(const at::Tensor &tensor) {
+        ROS_WARN_STREAM("input tensor = " << tensor);
         State::Vector temp = tensorToVector(tensor);
+        ROS_WARN_STREAM("converted tensor = " << temp.transpose());
         State::Vector y_eig(15);
         // to [orientation, position, velocity, blank, blank]
         y_eig << temp.head(3), temp.segment(6, 6), temp.segment(3, 3), temp.segment(12, 3);
-        ROS_WARN_STREAM("reformatted = " << y_eig.transpose());
+        ROS_WARN_STREAM("converted tensor, reformatted = " << y_eig.transpose());
+        y_eig = y_eig.unaryExpr([](double v) { return std::isfinite(v)? v : 0.0; });
+        ROS_WARN_STREAM("converted tensor, reformatted = " << y_eig.transpose());
         return y_eig;
       }
 
