@@ -83,6 +83,7 @@ namespace hector_pose_estimation {
       // This resets the current F which will then be updated with Jacobians.
       // Set up the right number of steps based on dt....... PAD YS (maybe just call predict)
 //  predict_steps = 1;   // TODO see if this can be dynamic based on the rate.
+      ROS_WARN("Prepare Predict");
       F.setIdentity();
       Q.setZero();
 
@@ -94,6 +95,7 @@ namespace hector_pose_estimation {
       if (!Filter::predict(system, dt)) return false;
       auto *predictor = boost::dynamic_pointer_cast<EKHI::Predictor>(system->predictor());
       // this then updates the global F and Q before the doPredict step
+      ROS_WARN("Predict");
       F += predictor->F;
       Q += predictor->Q;
 
@@ -150,6 +152,7 @@ namespace hector_pose_estimation {
 
     bool EKHI::prepareCorrect() {
       if (!Filter::prepareCorrect()) return false;
+      ROS_WARN("Prepare Correct");
 
       // Add Ft to Fs  - This is done here because the F matrix is updated only in predict steps so
       // this is the most recent F.
@@ -170,6 +173,7 @@ namespace hector_pose_estimation {
       // this is just for clarity so that it is easier to trace the calls.
       // Filter::correct(Measurements) just iterates over the measurements and calls this method on
       // them each. then doCorrect.
+      ROS_WARN("Correct");
       return Filter::correct(measurement);
     }
 
