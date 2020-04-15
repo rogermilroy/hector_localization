@@ -37,6 +37,7 @@
 #include <torch/script.h>
 
 
+
 #ifdef USE_HECTOR_TIMING
 #include <hector_diagnostics/timing.h>
 #endif
@@ -117,7 +118,12 @@ namespace hector_pose_estimation {
       inputs.emplace_back(torch::cat({Fs, torch::unsqueeze(Ft, 0)}));
 
       torch::NoGradGuard no_grad_guard;
+      using namespace std::chrono;
+      auto start = high_resolution_clock::now();
       xs = model.forward(inputs).toTensor();
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std::cout << "Model execution time: " << duration.count() << std::endl;
 
       xs = torch::squeeze(xs, 0);
 
@@ -185,7 +191,12 @@ namespace hector_pose_estimation {
       inputs.emplace_back(Fs);
 
       torch::NoGradGuard no_grad_guard;
+      using namespace std::chrono;
+      auto start = high_resolution_clock::now();
       xs = model.forward(inputs).toTensor();
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<microseconds>(stop - start);
+      std::cout << "Model execution time: " << duration.count() << std::endl;
 
       xs = torch::squeeze(xs, 0);
       ROS_WARN_STREAM("xs = [" << xs << "]");
