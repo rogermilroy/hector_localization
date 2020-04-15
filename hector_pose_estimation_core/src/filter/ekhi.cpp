@@ -58,7 +58,7 @@ namespace hector_pose_estimation {
       F = State::SystemMatrix(state_.getCovarianceDimension(), state_.getCovarianceDimension());
       Q = State::Covariance(state_.getCovarianceDimension(), state_.getCovarianceDimension());
       Ft = EKHI::systemMatrixToTensor(F, dev);
-      ROS_ERROR_STREAM("USING " << torch::get_device(Ft));
+      ROS_ERROR_STREAM("USING CUDA: " << torch::cuda::is_available());
       Fs = torch::zeros_like(Ft);
       Fs = torch::unsqueeze(Fs, 0); // make 3d so cat works correctly.
       yt = torch::zeros(state().getCovarianceDimension());
@@ -129,10 +129,13 @@ namespace hector_pose_estimation {
 
       ROS_WARN_STREAM("xs = [" << xs << "]");
 
-      State::Vector curr_eul = getStateAsEuler();
+      State::Vector curr_eul;
+      getStateAsEuler(curr_eul);
 
       // convert to same format..
-      State::Vector pred_x = modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1, /*end*/ xs.size(1)));
+      State::Vector pred_x;
+      modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1,
+        /*end*/ xs.size(1)), pred_x);
 
       // calculate difference between predicted x and state
       State::Vector diff = curr_eul - pred_x;
@@ -202,10 +205,13 @@ namespace hector_pose_estimation {
       ROS_WARN_STREAM("xs = [" << xs << "]");
 
       // extract the current state
-      State::Vector curr_eul = getStateAsEuler();
+      State::Vector curr_eul;
+      getStateAsEuler(curr_eul);
 
       // convert to same format..
-      State::Vector pred_x = modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1, /*end*/ xs.size(1)));
+      State::Vector pred_x;
+      modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1,
+        /*end*/ xs.size(1)), pred_x);
 
       // calculate difference between predicted x and state
       State::Vector diff = curr_eul - pred_x;

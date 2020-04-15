@@ -66,11 +66,6 @@ namespace hector_pose_estimation {
 
       virtual bool doCorrect();
 
-      at::Tensor columnVectorToTensor(const State::Vector &vec, at::Device device) {
-        auto eig_vec = hector_pose_estimation::State::columnVectorToVector(vec);
-        return torch::tensor(eig_vec,torch::dtype(at::kFloat).device(device));
-      }
-
       at::Tensor systemMatrixToTensor(const State::SystemMatrix &matrix, at::Device device) {
         auto eig_mat = hector_pose_estimation::State::systemMatrixToVector(matrix);
 
@@ -84,15 +79,16 @@ namespace hector_pose_estimation {
         return torch::stack(tensors).t();
       }
 
-      State::Vector tensorToVector(const at::Tensor &tensor) {
+      void tensorToVector(const at::Tensor &tensor, State::Vector &vec) {
         double *temp = tensor.to(at::kDouble).data_ptr<double>();
 
-        return Eigen::Map<State::Vector>(temp, torch::size(tensor, 0), 1);
+        vec = Eigen::Map<State::Vector>(temp, torch::size(tensor, 0), 1);
       }
 
-      State::Vector modelTensorToStateVector(const at::Tensor &tensor) {
+      void modelTensorToStateVector(const at::Tensor &tensor, State::Vector &vec) {
         ROS_WARN_STREAM("input tensor = " << tensor);
-        State::Vector temp = tensorToVector(tensor);
+        State::Vector temp;
+        tensorToVector(tensor, temp);
         ROS_WARN_STREAM("converted tensor = " << temp.transpose());
         State::Vector y_eig(15);
         // to [orientation, position, velocity, blank, blank]
@@ -100,10 +96,10 @@ namespace hector_pose_estimation {
         ROS_WARN_STREAM("converted tensor, reformatted = " << y_eig.transpose());
         y_eig = y_eig.unaryExpr([](double v) { return std::isfinite(v)? v : 0.0; });
         ROS_WARN_STREAM("converted tensor, reformatted = " << y_eig.transpose());
-        return y_eig;
+        vec = y_eig;
       }
 
-      State::Vector getStateAsEuler() {
+      void getStateAsEuler(State::Vector &vec) {
         // get state vector and convert to have euler..
         State::Vector curr = state().getVector();
         // from [orientation, rate, position, velocity]
@@ -111,7 +107,7 @@ namespace hector_pose_estimation {
         State::Vector curr_eul(15);
         curr_eul << orientation, curr.tail(12);
         ROS_WARN_STREAM("curr_eul = " << curr_eul.transpose());
-        return curr_eul;
+        vec = curr_eul;
       }
 
       class Predictor {
