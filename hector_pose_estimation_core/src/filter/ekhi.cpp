@@ -45,26 +45,31 @@ namespace hector_pose_estimation {
   namespace filter {
 
     EKHI::EKHI(State &state)
-      : Filter(state) {}
+      : Filter(state),
+      device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU)
+      {}
 
     EKHI::~EKHI() {}
 
 
     bool EKHI::init(PoseEstimation &estimator) {
+
       F = State::SystemMatrix(state_.getCovarianceDimension(), state_.getCovarianceDimension());
       Q = State::Covariance(state_.getCovarianceDimension(), state_.getCovarianceDimension());
-      Ft = EKHI::systemMatrixToTensor(F);
+      Ft = EKHI::systemMatrixToTensor(F, device);
+      ROS_ERROR_STREAM("USING " << torch::get_device(Ft));
       Fs = torch::zeros_like(Ft);
       Fs = torch::unsqueeze(Fs, 0); // make 3d so cat works correctly.
       yt = torch::zeros(state().getCovarianceDimension());
 
-      ys = torch::zeros_like(yt);
+      ys = torch::zeros_like(yt, device);
       ys = torch::unsqueeze(ys, 0); // make 2d so cat works correctly.
       // Load EKHI model here
 
       model = torch::jit::load(
         "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/hybrid_inference/src"
         "/torchscript/ekhi_model_larger.pt");
+      model.to(device);
 
       ROS_WARN(
         "+++++++++++++++++++++++++++++++++ INIT EKHI +++++++++++++++++++=======================");
@@ -101,12 +106,13 @@ namespace hector_pose_estimation {
       ROS_WARN_STREAM("Q      = [" << std::endl << Q << "]");
 
       // update accumulated F
-      Ft = Ft.matmul(EKHI::systemMatrixToTensor(F));
+      Ft = Ft.matmul(EKHI::systemMatrixToTensor(F, device));
 
       // CALL THE MODEL.. GET the last element (predicted state)
       std::vector <torch::jit::IValue> inputs;
       // here I replace the predict by just adding zeros to the end here instead of in predict.
-      inputs.emplace_back(torch::unsqueeze(torch::cat({ys, torch::unsqueeze(torch::zeros_like(yt), 0)}), 0));
+      inputs.emplace_back(torch::unsqueeze(torch::cat({ys, torch::unsqueeze(torch::zeros_like(yt,
+        device), 0)}), 0));
       // add Ft to the end of Fs for predictions.
       inputs.emplace_back(torch::cat({Fs, torch::unsqueeze(Ft, 0)}));
 

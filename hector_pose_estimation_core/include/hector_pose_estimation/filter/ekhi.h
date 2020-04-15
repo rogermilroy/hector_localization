@@ -35,7 +35,7 @@
 #define HECTOR_POSE_ESTIMATION_FILTER_EKHI_H
 
 #include <hector_pose_estimation/filter.h>
-#include <torch/script.h>
+#include <torch/torch.h>
 
 #include <ros/console.h>
 
@@ -66,18 +66,18 @@ namespace hector_pose_estimation {
 
       virtual bool doCorrect();
 
-      at::Tensor columnVectorToTensor(const State::Vector &vec) {
+      at::Tensor columnVectorToTensor(const State::Vector &vec, at::Device device) {
         auto eig_vec = hector_pose_estimation::State::columnVectorToVector(vec);
-        return torch::tensor(eig_vec, at::kFloat);
+        return torch::tensor(eig_vec,torch::dtype(at::kFloat).device(device));
       }
 
-      at::Tensor systemMatrixToTensor(const State::SystemMatrix &matrix) {
+      at::Tensor systemMatrixToTensor(const State::SystemMatrix &matrix, at::Device device) {
         auto eig_mat = hector_pose_estimation::State::systemMatrixToVector(matrix);
 
         // Converts each sub vector to tensor and stacks into a container vector
         std::vector <at::Tensor> tensors;
         for (const auto &x : eig_mat) {
-          tensors.push_back(torch::tensor(x, at::kFloat));
+          tensors.push_back(torch::tensor(x,torch::dtype(at::kFloat).device(device)));
         }
         // This stacks those tensors to make a 2d tensor. Must be transposed
         // due to mapping taking columnwise and stack going rowwise.
@@ -192,6 +192,7 @@ namespace hector_pose_estimation {
       int predict_steps; // This is for padded ys for prediction. TODO add this in.
       at::Tensor xs;  // this stores a full representation of state space
       torch::jit::script::Module model;
+      torch::Device device;
     };
 
   } // namespace filter
