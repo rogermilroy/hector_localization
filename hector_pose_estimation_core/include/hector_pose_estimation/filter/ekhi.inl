@@ -60,7 +60,7 @@ namespace hector_pose_estimation {
       // TODO this acts weirdly with resetting the base y ... WHY??
       this->model_->getCorrectedValue(y, filter_->yt, state());
 
-      ROS_WARN_STREAM("base filter yt = [" << filter_->yt << "]");
+      ROS_ERROR_STREAM("base filter yt = [" << filter_->yt << "]");
 
       this->init_ = false; // TODO what is this for???
       return true;

@@ -192,7 +192,7 @@ namespace hector_pose_estimation {
       int predict_steps; // This is for padded ys for prediction. TODO add this in.
       at::Tensor xs;  // this stores a full representation of state space
       torch::jit::script::Module model;
-      torch::Device device;
+      torch::Device dev;
     };
 
   } // namespace filter
