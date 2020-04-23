@@ -42,27 +42,33 @@ namespace hector_pose_estimation {
 
     template<class ConcreteModel, typename Enabled>
     bool EKHI::Predictor_<ConcreteModel, Enabled>::predict(double dt) {
-
-      // This should just update F
+      // update F
+      ROS_ERROR("predicting finding F");
       this->model_->getStateJacobian(F, state(), dt, this->init_);
+//      ROS_ERROR_STREAM("System F = [" << std::endl << F << "]");
 
+      // add acceleration to yt for correction phase.
+      filter_->yt[5] = state().getRate()(0);
+      filter_->yt[6] = state().getRate()(1);
+      filter_->yt[7] = state().getRate()(2);
+      filter_->yt[8] = state().getAcceleration()(0);
+      filter_->yt[9] = state().getAcceleration()(1);
+      filter_->yt[10] = state().getAcceleration()(2);
+
+      std::cout << "base filter yt = [" << filter_->yt << "]";
       // Prediction should happen only in main EKHi
-      this->init_ = false;  // TODO what is this about?
+      this->init_ = false;
       return true;
     }
 
     template<class ConcreteModel, typename Enabled>
-    bool EKHI::Corrector_<ConcreteModel, Enabled>::correct(const typename
-                                                           ConcreteModel::MeasurementVector &y,
+    bool EKHI::Corrector_<ConcreteModel, Enabled>::correct(const typename ConcreteModel::MeasurementVector &y,
                                                            const typename ConcreteModel::NoiseVariance &R) {
-
       // this directly updates the base filters y
-      // TODO this acts weirdly with resetting the base y ... WHY??
       this->model_->getCorrectedValue(y, filter_->yt, state());
-
       ROS_ERROR_STREAM("base filter yt = [" << filter_->yt << "]");
 
-      this->init_ = false; // TODO what is this for???
+      this->init_ = false;
       return true;
     }
 
