@@ -66,49 +66,7 @@ namespace hector_pose_estimation {
 
       virtual bool doCorrect();
 
-      at::Tensor systemMatrixToTensor(const State::SystemMatrix &matrix, at::Device device) {
-        auto eig_mat = hector_pose_estimation::State::systemMatrixToVector(matrix);
 
-        // Converts each sub vector to tensor and stacks into a container vector
-        std::vector <at::Tensor> tensors;
-        for (const auto &x : eig_mat) {
-          tensors.push_back(torch::tensor(x,torch::dtype(at::kFloat).device(device)));
-        }
-        // This stacks those tensors to make a 2d tensor. Must be transposed
-        // due to mapping taking columnwise and stack going rowwise.
-        return torch::stack(tensors).t();
-      }
-
-      void tensorToVector(const at::Tensor &tensor, State::Vector &vec) {
-        double *temp = tensor.to(at::kDouble).data_ptr<double>();
-
-        vec = Eigen::Map<State::Vector>(temp, torch::size(tensor, 0), 1);
-      }
-
-      void modelTensorToStateVector(const at::Tensor &tensor, State::Vector &vec) {
-        ROS_WARN_STREAM("input tensor = " << tensor);
-        State::Vector temp;
-        tensorToVector(tensor, temp);
-        ROS_WARN_STREAM("converted tensor = " << temp.transpose());
-        State::Vector y_eig(15);
-        // to [orientation, position, velocity, blank, blank]
-        y_eig << temp.head(3), temp.segment(6, 6), temp.segment(3, 3), temp.segment(12, 3);
-        ROS_WARN_STREAM("converted tensor, reformatted = " << y_eig.transpose());
-        y_eig = y_eig.unaryExpr([](double v) { return std::isfinite(v)? v : 0.0; });
-        ROS_WARN_STREAM("converted tensor, reformatted = " << y_eig.transpose());
-        vec = y_eig;
-      }
-
-      void getStateAsEuler(State::Vector &vec) {
-        // get state vector and convert to have euler..
-        State::Vector curr = state().getVector();
-        // from [orientation, rate, position, velocity]
-        State::Vector orientation = state().getEuler();
-        State::Vector curr_eul(15);
-        curr_eul << orientation, curr.tail(12);
-        ROS_WARN_STREAM("curr_eul = " << curr_eul.transpose());
-        vec = curr_eul;
-      }
 
       class Predictor {
       public:
@@ -116,10 +74,8 @@ namespace hector_pose_estimation {
 
         Predictor(EKHI *filter)
           : filter_(filter),
-            F(filter->state().getCovarianceDimension(), filter->state().getCovarianceDimension()),
-            Q(filter->state().getCovarianceDimension(), filter->state().getCovarianceDimension()) {
-          F.setZero();
-          Q.setZero();
+            F(filter->state().getCovarianceDimension(), filter->state().getCovarianceDimension()){
+          F.setIdentity();
         }
 
         virtual ~Predictor() {}
@@ -131,7 +87,6 @@ namespace hector_pose_estimation {
 
       public:
         State::SystemMatrix F;
-        State::Covariance Q;
       };
 
       template<class ConcreteModel, typename Enabled = void>
@@ -178,17 +133,55 @@ namespace hector_pose_estimation {
 
       };
 
-    public:
+    protected:
+      at::Tensor systemMatrixToTensor(const State::SystemMatrix &matrix, at::Device device) {
+        auto eig_mat = hector_pose_estimation::State::systemMatrixToVector(matrix);
+
+        // Converts each sub vector to tensor and stacks into a container vector
+        std::vector <at::Tensor> tensors;
+        for (const auto &x : eig_mat) {
+          tensors.push_back(torch::tensor(x,torch::dtype(at::kFloat).device(device)));
+        }
+        // This stacks those tensors to make a 2d tensor. Must be transposed
+        // due to mapping taking columnwise and stack going rowwise.
+        return torch::stack(tensors).t();
+      }
+
+      void tensorToVector(const at::Tensor &tensor, State::Vector &vec) {
+        // There is an odd bug if you chain conversion to double with getting data ptr.
+        auto t = tensor.to(at::kDouble);
+        double *temp = t.data_ptr<double>();
+        vec = Eigen::Map<State::Vector>(temp, torch::size(tensor, 0), 1);
+      }
+
+      void modelTensorToStateVector(const at::Tensor &tensor, State::Vector &vec) {
+        State::Vector temp;
+        tensorToVector(tensor, temp);
+        temp = temp.unaryExpr([](double v) { return std::isfinite(v)? v : 0.0; });
+        vec = temp;
+      }
+
+      void getStateAsEuler(State::Vector &vec) {
+        // get state vector and convert to have euler..
+        State::Vector curr = state().getVector();
+        // from [orientation, rate, position, velocity]
+        State::Vector orientation = state().getEuler();
+        State::Vector curr_eul(15);
+        curr_eul << orientation, curr.tail(12);
+        vec = curr_eul;
+      }
+
       State::SystemMatrix F; // This is the current F
-      State::Covariance Q; // Q
       at::Tensor Ft; // This is the accumulated F between corrects.
       at::Tensor Fs;  // tensor            // This is the accumulated Fs (last 100 ish?) as a tensor
       at::Tensor yt;  // this is for assembling the y.
       at::Tensor ys;  // Should store these every time the main correct is called.
-      int predict_steps; // This is for padded ys for prediction. TODO add this in.
-      at::Tensor xs;  // this stores a full representation of state space
+      at::Tensor xs;  // for the output
       torch::jit::script::Module model;
       torch::Device dev;
+      int i;
+      int now;
+      int timesteps;
     };
 
   } // namespace filter
