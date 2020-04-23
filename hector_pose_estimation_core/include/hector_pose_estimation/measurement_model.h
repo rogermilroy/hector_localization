@@ -156,9 +156,7 @@ MeasurementModel_<Derived, _Dimension>::getStateJacobian(MeasurementMatrix &C, c
 
   template<class Derived, int _Dimension>
   void MeasurementModel_<Derived, _Dimension>::getCorrectedValue(const MeasurementVector &y_in,
-                                                                 at::Tensor &y_out,
-                                                                 const State &state) {
-    y_out = torch::zeros_like(y_out);
+                                                                 at::Tensor &y_out, const State  &state) {
   }
 
 } // namespace hector_pose_estimation
