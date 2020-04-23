@@ -114,9 +114,9 @@ bool PoseEstimation::init()
 
   // call setFilter for each system and each measurement
   for(const auto & system: systems_)
-    system->setFilter(filter_.get()); ROS_ERROR("After set filter for system");
+    system->setFilter(filter_.get());
   for(const auto & measurement: measurements_)
-    measurement->setFilter(filter_.get()); ROS_ERROR("After set filter for measurment");
+    measurement->setFilter(filter_.get());
 
   // reset (or initialize) filter and measurements
   reset();
