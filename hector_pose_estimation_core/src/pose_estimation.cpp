@@ -102,22 +102,21 @@ bool PoseEstimation::init()
   filter_.reset(new filter::EKHI(*state_));
 
   // initialize systems (new systems could be added during initialization!)
-  for(Systems::iterator it = systems_.begin(); it != systems_.end(); ++it)
-    if (!(*it)->init(*this, state())) return false;
+  for(const auto & system : systems_)
+    if (!system->init(*this, state())) return false;
 
   // initialize measurements (new systems could be added during initialization!)
-  for(Measurements::iterator it = measurements_.begin(); it != measurements_.end(); ++it)
-    if (!(*it)->init(*this, state())) return false;
+  for(const auto & measurement: measurements_)
+    if (!measurement->init(*this, state())) return false;
 
   // initialize filter
   filter_->init(*this);
 
-  ROS_ERROR("After init filter");
   // call setFilter for each system and each measurement
-  for(Systems::iterator it = systems_.begin(); it != systems_.end(); ++it)
-    (*it)->setFilter(filter_.get()); ROS_ERROR("After set filter for system");
-  for(Measurements::iterator it = measurements_.begin(); it != measurements_.end(); ++it)
-    (*it)->setFilter(filter_.get()); ROS_ERROR("After set filter for measurment");
+  for(const auto & system: systems_)
+    system->setFilter(filter_.get()); ROS_ERROR("After set filter for system");
+  for(const auto & measurement: measurements_)
+    measurement->setFilter(filter_.get()); ROS_ERROR("After set filter for measurment");
 
   // reset (or initialize) filter and measurements
   reset();
@@ -128,10 +127,10 @@ bool PoseEstimation::init()
 void PoseEstimation::cleanup()
 {
   // cleanup system
-  for(Systems::iterator it = systems_.begin(); it != systems_.end(); ++it) (*it)->cleanup();
+  for(const auto & system : systems_) system->cleanup();
 
   // cleanup measurements
-  for(Measurements::iterator it = measurements_.begin(); it != measurements_.end(); ++it) (*it)->cleanup();
+  for(const auto & measurement : measurements_) measurement->cleanup();
 
   // delete filter instance
   if (filter_) filter_.reset();
@@ -152,13 +151,13 @@ void PoseEstimation::reset()
   }
 
   // reset systems and measurements
-  for(Systems::iterator it = systems_.begin(); it != systems_.end(); ++it) {
-    (*it)->reset(state());
-    (*it)->getPrior(state());
+  for(const auto & system : systems_) {
+    system->reset(state());
+    system->getPrior(state());
   }
 
-  for(Measurements::iterator it = measurements_.begin(); it != measurements_.end(); ++it) {
-    (*it)->reset(state());
+  for(const auto & measurement : measurements_) {
+    measurement->reset(state());
   }
 
   updated();
@@ -231,8 +230,7 @@ void PoseEstimation::update(double dt)
 
   // set measurement status and increase timers
   SystemStatus measurement_status = 0;
-  for(Measurements::iterator it = measurements_.begin(); it != measurements_.end(); it++) {
-    const MeasurementPtr& measurement = *it;
+  for(const auto & measurement : measurements_) {
     measurement_status |= measurement->getStatusFlags();
     measurement->increase_timer(dt);
   }
@@ -240,8 +238,7 @@ void PoseEstimation::update(double dt)
 
   // set system status
   SystemStatus system_status = 0;
-  for(Systems::iterator it = systems_.begin(); it != systems_.end(); it++) {
-    const SystemPtr& system = *it;
+  for(const auto & system : systems_) {
     system_status |= system->getStatusFlags();
   }
   updateSystemStatus(system_status, STATE_MASK | STATE_PSEUDO_MASK);
@@ -273,8 +270,8 @@ void PoseEstimation::update(double dt)
 }
 
 void PoseEstimation::updated() {
-  for(Systems::iterator it = systems_.begin(); it != systems_.end(); ++it) {
-    (*it)->limitState(state());
+  for(const auto & system : systems_) {
+    system->limitState(state());
   }
 }
 
