@@ -107,36 +107,36 @@ namespace hector_pose_estimation {
       Ft = Ft.matmul(EKHI::systemMatrixToTensor(F, dev));
 
       // CALL THE MODEL.. GET the last element (predicted state)
-      std::vector <torch::jit::IValue> inputs;
-      // here I replace the predict by just adding zeros to the end here instead of in predict.
-      inputs.emplace_back(torch::unsqueeze(torch::cat({ys, torch::unsqueeze(torch::zeros_like(yt,
-        dev), 0)}), 0));
-      // add Ft to the end of Fs for predictions.
-      inputs.emplace_back(torch::cat({Fs, torch::unsqueeze(Ft, 0)}));
+//      std::vector <torch::jit::IValue> inputs;
+//      // here I replace the predict by just adding zeros to the end here instead of in predict.
+//      inputs.emplace_back(torch::unsqueeze(torch::cat({ys, torch::unsqueeze(torch::zeros_like(yt,
+//        dev), 0)}), 0));
+//      // add Ft to the end of Fs for predictions.
+//      inputs.emplace_back(torch::cat({Fs, torch::unsqueeze(Ft, 0)}));
 
-      torch::NoGradGuard no_grad_guard;
-      using namespace std::chrono;
-      auto start = high_resolution_clock::now();
-      xs = model.forward(inputs).toTensor();
-      auto stop = high_resolution_clock::now();
-      auto duration = duration_cast<microseconds>(stop - start);
-      std::cout << "Model execution time: " << duration.count() << std::endl;
-
-      xs = torch::squeeze(xs, 0);
-
-      State::Vector curr_eul;
-      getStateAsEuler(curr_eul);
-
-      // convert to same format..
-      State::Vector pred_x;
-      modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1,
-        /*end*/ xs.size(1)), pred_x);
-
-      // calculate difference between predicted x and state
-      State::Vector diff = pred_x - curr_eul;
-
-      // THEN UPDATE THE STATE
-      state().update(diff);
+//      torch::NoGradGuard no_grad_guard;
+//      using namespace std::chrono;
+//      auto start = high_resolution_clock::now();
+//      xs = model.forward(inputs).toTensor();
+//      auto stop = high_resolution_clock::now();
+//      auto duration = duration_cast<microseconds>(stop - start);
+//      std::cout << "Model execution time: " << duration.count() << std::endl;
+//
+//      xs = torch::squeeze(xs, 0);
+//
+//      State::Vector curr_eul;
+//      getStateAsEuler(curr_eul);
+//
+//      // convert to same format..
+//      State::Vector pred_x;
+//      modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1,
+//        /*end*/ xs.size(1)), pred_x);
+//
+//      // calculate difference between predicted x and state
+//      State::Vector diff = pred_x - curr_eul;
+//
+//      // THEN UPDATE THE STATE
+//      state().update(diff);
 
       return true;
     }
@@ -150,11 +150,11 @@ namespace hector_pose_estimation {
       Fs = torch::cat({Fs, torch::unsqueeze(Ft, 0)});
 
       // update time and save F
-//      now = static_cast<int>(ros::Time::now().nsec / 1000);
-//
-//      torch::save({torch::tensor(now), Ft},
-//                  "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/catkin_ws"
-//                  "/recording2/F-"+std::to_string(i)+".pt");
+      now = static_cast<int>(ros::Time::now().nsec / 1000);
+
+      torch::save({torch::tensor(now), Ft},
+                  "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/catkin_ws"
+                  "/recording/F-"+std::to_string(i)+".pt");
 
       // reset Ft
       Ft = torch::eye(Ft.size(0));
