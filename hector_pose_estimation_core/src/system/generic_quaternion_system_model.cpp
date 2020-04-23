@@ -276,10 +276,10 @@ void GenericQuaternionSystemModel::getStateJacobian(SystemMatrix& A, const State
 
     state.orientation()->block(A) += SkewSymmetricMatrix(-rate_nav_);
 
-    if (!(state.getSystemStatus() & STATE_YAW) || (state.getSystemStatus() & STATUS_ALIGNMENT)) {
-      state.orientation()->rows(A).row(2).setZero();
-      state.orientation()->block(A).col(2).setZero();
-    }
+//    if (!(state.getSystemStatus() & STATE_YAW) || (state.getSystemStatus() & STATUS_ALIGNMENT)) {
+//      state.orientation()->rows(A).row(2).setZero();
+//      state.orientation()->block(A).col(2).setZero();
+//    }
   }
 
   if (state.velocity()) {
@@ -295,13 +295,13 @@ void GenericQuaternionSystemModel::getStateJacobian(SystemMatrix& A, const State
       state.velocity()->block(A, *state.orientation()) += SkewSymmetricMatrix(-acceleration_nav_);
     }
 
-    if (!(state.getSystemStatus() & STATE_VELOCITY_XY) || (state.getSystemStatus() & STATUS_ALIGNMENT)) {
-      state.velocity()->rows(A).topRows(2).setZero();
-    }
-
-    if (!(state.getSystemStatus() & STATE_VELOCITY_Z) || (state.getSystemStatus() & STATUS_ALIGNMENT)) {
-      state.velocity()->rows(A).row(2).setZero();
-    }
+//    if (!(state.getSystemStatus() & STATE_VELOCITY_XY) || (state.getSystemStatus() & STATUS_ALIGNMENT)) {
+//      state.velocity()->rows(A).topRows(2).setZero();
+//    }
+//
+//    if (!(state.getSystemStatus() & STATE_VELOCITY_Z) || (state.getSystemStatus() & STATUS_ALIGNMENT)) {
+//      state.velocity()->rows(A).row(2).setZero();
+//    }
   }
 
   if (state.position() && state.velocity()) {
