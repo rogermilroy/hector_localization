@@ -67,6 +67,17 @@ void HeightModel::getStateJacobian(MeasurementMatrix& C, const State& state, boo
   }
 }
 
+/**
+ * This method converts the raw values to an xyz position vector.
+ * @param y_in The measurement
+ * @param y_out The tensor to fill
+ * @param state The state.
+ */
+void HeightModel::getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
+                                    const State &state) {
+  y_out[2] =  y_in(0) - getElevation();
+}
+
 HeightBaroCommon::HeightBaroCommon(Measurement* parent)
   : auto_elevation_(true)
   , elevation_initialized_(false)

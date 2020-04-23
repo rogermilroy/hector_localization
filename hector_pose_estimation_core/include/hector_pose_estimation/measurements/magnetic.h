@@ -60,9 +60,6 @@ namespace hector_pose_estimation {
 
     virtual void getStateJacobian(MeasurementMatrix &C, const State &state, bool init);
 
-    virtual void getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
-                                   const State &state);
-
     double getMagneticHeading(const State &state, const MeasurementVector &y) const;
 
     double getTrueHeading(const State &state, const MeasurementVector &y) const;

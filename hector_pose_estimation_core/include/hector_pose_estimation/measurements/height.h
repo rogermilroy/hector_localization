@@ -43,6 +43,7 @@ public:
   virtual void getMeasurementNoise(NoiseVariance& R, const State&, bool init);
   virtual void getExpectedValue(MeasurementVector& y_pred, const State& state);
   virtual void getStateJacobian(MeasurementMatrix& C, const State& state, bool init);
+  virtual void getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out, const State &state);
 
   void setElevation(double elevation) { elevation_ = elevation; }
   double getElevation() const { return elevation_; }
