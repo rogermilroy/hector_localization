@@ -135,7 +135,7 @@ namespace hector_pose_estimation {
       // calculate difference between predicted x and state
       State::Vector diff = pred_x - curr_eul;
 
-      // THEN UPDATE THE STATE..
+      // THEN UPDATE THE STATE
       state().update(diff);
 
       return true;
@@ -207,7 +207,6 @@ namespace hector_pose_estimation {
       std::cout << "Model execution time: " << duration.count() << std::endl;
 
       xs = torch::squeeze(xs, 0);
-//      ROS_WARN_STREAM("xs = [" << xs << "]");
 
       // extract the current state
       State::Vector curr_eul;
@@ -218,11 +217,9 @@ namespace hector_pose_estimation {
       modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1,
         /*end*/ xs.size(1)), pred_x);
 
-      ROS_WARN_STREAM("pred x = [" << pred_x << "]");
 
       // calculate difference between predicted x and state
       State::Vector diff = pred_x -curr_eul;
-//      ROS_WARN_STREAM("diff = [" << diff.transpose() << "]");
 
       // THEN UPDATE THE STATE..
       state().update(diff);
