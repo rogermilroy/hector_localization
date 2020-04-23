@@ -76,11 +76,10 @@ void GPSModel::getMeasurementNoise(NoiseVariance& R, const State&, bool init)
     // yin is fine as it is.
     // y should be [orientation (euler), rate, position, velocity, acceleration] in groups of x,y,z
     // so index 8 should be position z.
-    y_out[6] = y_in(0);
-    y_out[7] = y_in(1);
-    y_out[9] = y_in(2);
-    y_out[10] = y_in(3);
-    ROS_WARN_STREAM("GPS y out = [" << y_out << "]");
+    y_out[0] = y_in(0);
+    y_out[1] = y_in(1);
+    y_out[3] = y_in(2);
+    y_out[4] = y_in(3);
   }
 
   void GPSModel::getStateJacobian(MeasurementMatrix &C, const State &state, bool init) {

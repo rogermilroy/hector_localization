@@ -65,28 +65,27 @@ namespace hector_pose_estimation {
 
 /**
  * This method converts the raw values to an xyz orientation vector.
- * @param y_in
- * @param y_out
- * @param state
+ * @param y_in The measurement
+ * @param y_out The tensor to fill
+ * @param state The state.
  */
   void BaroModel::getCorrectedValue(const MeasurementVector &y_in, at::Tensor &y_out,
-                                    const
-                                    State &state) {
-    // y should be [orientation (euler), rate, position, velocity, acceleration] in groups of x,y,z
-    // so index 8 should be position z.
-    ROS_WARN_STREAM("Baro y_in = [" << y_in.transpose() << "]");
-    ROS_WARN_STREAM("Baro calculated y_out = [" << getAlt(y_in) - getElevation() << "]");
-    y_out[8] = getAlt(y_in) - getElevation();
-    ROS_WARN_STREAM("Baro y_out = [" << y_out << "]");
-  }
-
-  double BaroModel::getAlt(const MeasurementVector &y_pred) {
-//  ROS_WARN_STREAM("Altitude:  " << 288.15 / 0.0065 * (1.0 - pow(y_pred / qnh_, 1.0/5.255)));
-    return 288.15 / 0.0065 * (1.0 - pow(y_pred(0) / qnh_, 1.0 / 5.255));
+                                    const State &state) {
+    // y should be [position, velocity, rate, acceleration] in groups of x,y,z excluding velocity z
+    // so index 2 should be position z.
+    y_out[2] = getAlt(y_in) - getElevation();
   }
 
   double BaroModel::getAltitude(const BaroUpdate &update) {
     return 288.15 / 0.0065 * (1.0 - pow(update.getVector()(0) / qnh_, 1.0 / 5.255));
+  }
+
+  /**
+ * This method calculates the altitude from a measurement vector.
+ * @param y_pred The predicted pressure as a vector
+ */
+  double BaroModel::getAlt(const MeasurementVector &y_pred) {
+    return 288.15 / 0.0065 * (1.0 - pow(y_pred(0) / qnh_, 1.0 / 5.255));
   }
 
   BaroUpdate::BaroUpdate() : qnh_(0) {}
