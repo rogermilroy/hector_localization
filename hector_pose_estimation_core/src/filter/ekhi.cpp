@@ -36,7 +36,7 @@
 #include <boost/pointer_cast.hpp>
 #include <torch/script.h>
 
-
+#include <cmath>
 
 #ifdef USE_HECTOR_TIMING
 #include <hector_diagnostics/timing.h>
@@ -59,14 +59,13 @@ namespace hector_pose_estimation {
       F.setIdentity();
       Ft = EKHI::systemMatrixToTensor(F, dev);
       ROS_ERROR_STREAM("USING CUDA: " << torch::cuda::is_available());
-      Fs = torch::eye(torch::size(Ft,0));
+      Fs = torch::eye(torch::size(Ft,0), dev);
       Fs = torch::unsqueeze(Fs, 0); // make 3d so cat works correctly.
       yt = torch::zeros(11); // new y dimension to only work with imu + gps data.
 
       ys = torch::zeros_like(yt, dev);
       ys = torch::unsqueeze(ys, 0); // make 2d so cat works correctly.
       // Load EKHI model here
-
       model = torch::jit::load(
         "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/hybrid_inference/src"
         "/torchscript/ekhi_model_redone.pt");
@@ -83,8 +82,17 @@ namespace hector_pose_estimation {
 
     bool EKHI::preparePredict(double dt) {
       // This resets the current F which will then be updated with Jacobians.
-      ROS_WARN("Prepare Predict");
+//      ROS_WARN("Prepare Predict");
       F.setIdentity();
+
+      // add acceleration to yt for correction phase.
+      yt[5] = state().getRate()(0);
+      yt[6] = state().getRate()(1);
+      yt[7] = state().getRate()(2);
+      yt[8] = state().getAcceleration()(0);
+      yt[9] = state().getAcceleration()(1);
+      yt[10] = state().getAcceleration()(2);
+
       return Filter::preparePredict(dt); // this just returns true.
     }
 
@@ -94,7 +102,7 @@ namespace hector_pose_estimation {
       if (!Filter::predict(system, dt)) return false;
       auto *predictor = boost::dynamic_pointer_cast<EKHI::Predictor>(system->predictor());
       // this then updates the global F and Q before the doPredict step
-      ROS_WARN("Predict");
+//      ROS_WARN("Predict");
       F += predictor->F;
 
       return true;
@@ -150,11 +158,12 @@ namespace hector_pose_estimation {
       Fs = torch::cat({Fs, torch::unsqueeze(Ft, 0)});
 
       // update time and save F
-      now = static_cast<int>(ros::Time::now().nsec / 1000);
+      now_nsecs = static_cast<long>(ros::Time::now().nsec / 1000);
+      now_secs = static_cast<int>(ros::Time::now().sec);
 
-      torch::save({torch::tensor(now), Ft},
+      torch::save({torch::tensor(now_secs), torch::tensor(now_nsecs), Ft},
                   "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/catkin_ws"
-                  "/recording/F-"+std::to_string(i)+".pt");
+                  "/recording_long/F-"+std::to_string(i)+".pt");
 
       // reset Ft
       Ft = torch::eye(Ft.size(0));
@@ -171,7 +180,7 @@ namespace hector_pose_estimation {
       // this is just for clarity so that it is easier to trace the calls.
       // Filter::correct(Measurements) just iterates over the measurements and calls this method on
       // them each. then doCorrect.
-      ROS_WARN("Correct");
+//      ROS_WARN("Correct");
       return Filter::correct(measurement);
     }
 
@@ -187,42 +196,43 @@ namespace hector_pose_estimation {
       }
 
       //  save the y
-//      torch::save({torch::tensor(now), yt},
-//        "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/catkin_ws"
-//                       "/recording2/y-"+std::to_string(i)+".pt");
-//
-//      i++;
+      torch::save({torch::tensor(now_secs), torch::tensor(now_nsecs), yt},
+        "/home/r/Documents/FinalProject/FullUnit_1920_RogerMilroy/Code/catkin_ws"
+                       "/recording_long/y-"+std::to_string(i)+".pt");
+
+      i++;
 
       // CALL THE MODEL
-      std::vector <torch::jit::IValue> inputs;
-      inputs.emplace_back(torch::unsqueeze(ys, 0));
-      inputs.emplace_back(Fs);
-
-      torch::NoGradGuard no_grad_guard;
-      using namespace std::chrono;
-      auto start = high_resolution_clock::now();
-      xs = model.forward(inputs).toTensor();
-      auto stop = high_resolution_clock::now();
-      auto duration = duration_cast<microseconds>(stop - start);
-      std::cout << "Model execution time: " << duration.count() << std::endl;
-
-      xs = torch::squeeze(xs, 0);
-
-      // extract the current state
-      State::Vector curr_eul;
-      getStateAsEuler(curr_eul);
-
-      // convert to same format..
-      State::Vector pred_x;
-      modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1,
-        /*end*/ xs.size(1)), pred_x);
-
-
-      // calculate difference between predicted x and state
-      State::Vector diff = pred_x -curr_eul;
-
-      // THEN UPDATE THE STATE..
-      state().update(diff);
+//      std::vector <torch::jit::IValue> inputs;
+//      inputs.emplace_back(torch::unsqueeze(ys, 0));
+//      inputs.emplace_back(Fs);
+//      inputs.emplace_back(Hs);
+//
+//      torch::NoGradGuard no_grad_guard;
+//      using namespace std::chrono;
+//      auto start = high_resolution_clock::now();
+//      xs = model.forward(inputs).toTensor();
+//      auto stop = high_resolution_clock::now();
+//      auto duration = duration_cast<microseconds>(stop - start);
+//      std::cout << "Model execution time: " << duration.count() << std::endl;
+//
+//      xs = torch::squeeze(xs, 0);
+//
+//      // extract the current state
+//      State::Vector curr_eul;
+//      getStateAsEuler(curr_eul);
+//
+//      // convert to same format..
+//      State::Vector pred_x;
+//      modelTensorToStateVector(xs.slice(/*dim*/ 1, /*start*/ xs.size(1) - 1,
+//        /*end*/ xs.size(1)), pred_x);
+//
+//
+//      // calculate difference between predicted x and state
+//      State::Vector diff = pred_x -curr_eul;
+//
+//      // THEN UPDATE THE STATE..
+//      state().update(diff);
 
       return true;
     }
