@@ -47,15 +47,6 @@ namespace hector_pose_estimation {
       this->model_->getStateJacobian(F, state(), dt, this->init_);
 //      ROS_ERROR_STREAM("System F = [" << std::endl << F << "]");
 
-      // add acceleration to yt for correction phase.
-      filter_->yt[5] = state().getRate()(0);
-      filter_->yt[6] = state().getRate()(1);
-      filter_->yt[7] = state().getRate()(2);
-      filter_->yt[8] = state().getAcceleration()(0);
-      filter_->yt[9] = state().getAcceleration()(1);
-      filter_->yt[10] = state().getAcceleration()(2);
-
-      std::cout << "base filter yt = [" << filter_->yt << "]";
       // Prediction should happen only in main EKHi
       this->init_ = false;
       return true;
@@ -66,7 +57,7 @@ namespace hector_pose_estimation {
                                                            const typename ConcreteModel::NoiseVariance &R) {
       // this directly updates the base filters y
       this->model_->getCorrectedValue(y, filter_->yt, state());
-      ROS_ERROR_STREAM("base filter yt = [" << filter_->yt << "]");
+//      ROS_ERROR_STREAM("base filter yt = [" << filter_->yt << "]");
 
       this->init_ = false;
       return true;

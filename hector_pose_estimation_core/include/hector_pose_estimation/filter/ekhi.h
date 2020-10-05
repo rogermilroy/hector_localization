@@ -31,10 +31,11 @@
 //=================================================================================================
 
 
-#ifndef HECTOR_POSE_ESTIMATION_FILTER_EKHI_H  // TODO check that these definitions are a good
+#ifndef HECTOR_POSE_ESTIMATION_FILTER_EKHI_H
 #define HECTOR_POSE_ESTIMATION_FILTER_EKHI_H
 
 #include <hector_pose_estimation/filter.h>
+#include <hector_pose_estimation/pose_estimation.h>
 #include <torch/torch.h>
 
 #include <ros/console.h>
@@ -180,7 +181,8 @@ namespace hector_pose_estimation {
       torch::jit::script::Module model;
       torch::Device dev;
       int i;
-      int now;
+      int now_secs;
+      long now_nsecs;
       int timesteps;
     };
 
